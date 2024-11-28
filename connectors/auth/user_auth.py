@@ -1,6 +1,7 @@
 from . import auth
 from flask import Flask, request, jsonify
 from models.users import db, User
+from werkzeug.security import generate_password_hash, check_password_hash
 
 @auth.route('/register', methods=['POST'])
 def register():
@@ -18,8 +19,11 @@ def register():
 
     if not username or not fullname or not email or not password or not pin or not role or not phone_number:
         return jsonify({'error': 'Please fill all fields'}), 400
-
-    user = User(username=username, fullname=fullname, email=email, password_hash=password, pin_hash=pin, role=role, phone_number=phone_number, agen_id=agen_id, location=location)
+    
+    hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
+    hashed_pin = generate_password_hash(pin, method='pbkdf2:sha256')
+    user = User(username=username, fullname=fullname, email=email, password_hash=hashed_password, pin_hash=hashed_pin, role=role, phone_number=phone_number, agen_id=agen_id, location=location)
+    
     db.session.add(user)
     db.session.commit()
 
