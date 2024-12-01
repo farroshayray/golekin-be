@@ -13,16 +13,25 @@ def register():
     pin = data.get('pin', '').strip()
     role = data.get('role', '').strip()
     phone_number = data.get('phone_number', '').strip()
-    agen_id_value = data.get('agen_id', '').strip()  # Get and strip the value
+    agen_id_value = data.get('agen_id', '').strip()
+    
     agen_id = int(agen_id_value) if agen_id_value else None
     location = data.get('location', '').strip()
 
     if not username or not fullname or not email or not password or not pin or not role or not phone_number:
         return jsonify({'error': 'Please fill all fields'}), 400
-    
+
+    if role in ['pedagang', 'driver'] and not agen_id:
+        return jsonify({'error': 'Agen ID must be provided for "pedagang" or "driver" roles'}), 400
+
     hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
     hashed_pin = generate_password_hash(pin, method='pbkdf2:sha256')
-    user = User(username=username, fullname=fullname, email=email, password_hash=hashed_password, pin_hash=hashed_pin, role=role, phone_number=phone_number, agen_id=agen_id, location=location)
+
+    try:
+        user = User(username=username, fullname=fullname, email=email, password_hash=hashed_password, 
+                    pin_hash=hashed_pin, role=role, phone_number=phone_number, agen_id=agen_id, location=location)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     
     db.session.add(user)
     db.session.commit()
