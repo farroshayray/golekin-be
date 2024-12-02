@@ -15,11 +15,3 @@ class Config:
     JWT_ACCESS_COOKIE_PATH = "/"
     JWT_COOKIE_CSRF_PROTECT = False  
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=60)
-
-class DevelopmentConfig(Config):
-    DEBUG = True
-    ENV = 'development'
-
-class ProductionConfig(Config):
-    DEBUG = False
-    ENV = 'production'
