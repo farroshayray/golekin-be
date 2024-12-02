@@ -1,10 +1,12 @@
 # flask app.py
 from flask import Flask
+from flask_cors import CORS
 from config import Config
 from models.users import db, User
 from connectors.auth import auth as auth_blueprint
 
 app = Flask(__name__)
+CORS(app)
 app.config.from_object(Config)
 db.init_app(app)
 
