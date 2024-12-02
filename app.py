@@ -1,17 +1,13 @@
 from flask import Flask
-from config import DevelopmentConfig, ProductionConfig
+from flask_cors import CORS
+from config import Config
 from models.users import db, User
 from connectors.auth import auth as auth_blueprint
 import os
 
 app = Flask(__name__)
-
-env = os.getenv("FLASK_ENV", "development")
-if env == "development":
-    app.config.from_object(DevelopmentConfig)
-else:
-    app.config.from_object(ProductionConfig)
-
+CORS(app)
+app.config.from_object(Config)
 db.init_app(app)
 
 if env == "development":

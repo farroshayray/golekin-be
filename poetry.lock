@@ -167,6 +167,7 @@ test = ["certifi (>=2024)", "cryptography-vectors (==44.0.0)", "pretend (>=0.7)"
 test-randomorder = ["pytest-randomly"]
 
 [[package]]
+<<<<<<< HEAD
 name = "dnspython"
 version = "2.7.0"
 description = "DNS toolkit"
@@ -202,6 +203,8 @@ dnspython = ">=2.0.0"
 idna = ">=2.0.0"
 
 [[package]]
+=======
+>>>>>>> develop
 name = "flask"
 version = "3.1.0"
 description = "A simple framework for building complex web applications."
@@ -224,6 +227,7 @@ async = ["asgiref (>=3.2)"]
 dotenv = ["python-dotenv"]
 
 [[package]]
+<<<<<<< HEAD
 name = "flask-jwt-extended"
 version = "4.7.1"
 description = "Extended JWT integration with Flask"
@@ -241,6 +245,20 @@ Werkzeug = ">=0.14"
 
 [package.extras]
 asymmetric-crypto = ["cryptography (>=3.3.1)"]
+=======
+name = "flask-cors"
+version = "5.0.0"
+description = "A Flask extension adding a decorator for CORS support"
+optional = false
+python-versions = "*"
+files = [
+    {file = "Flask_Cors-5.0.0-py2.py3-none-any.whl", hash = "sha256:b9e307d082a9261c100d8fb0ba909eec6a228ed1b60a8315fd85f783d61910bc"},
+    {file = "flask_cors-5.0.0.tar.gz", hash = "sha256:5aadb4b950c4e93745034594d9f3ea6591f734bb3662e16e255ffbf5e89c88ef"},
+]
+
+[package.dependencies]
+Flask = ">=0.9"
+>>>>>>> develop
 
 [[package]]
 name = "flask-sqlalchemy"
@@ -467,6 +485,7 @@ files = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 name = "pyjwt"
 version = "2.10.1"
 description = "JSON Web Token implementation in Python"
@@ -484,6 +503,8 @@ docs = ["sphinx", "sphinx-rtd-theme", "zope.interface"]
 tests = ["coverage[toml] (==5.0.4)", "pytest (>=6.0.0,<7.0.0)"]
 
 [[package]]
+=======
+>>>>>>> develop
 name = "pymysql"
 version = "1.1.1"
 description = "Pure Python MySQL Driver"
@@ -638,4 +659,8 @@ watchdog = ["watchdog (>=2.3)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
+<<<<<<< HEAD
 content-hash = "0abec4dfa83d86eaa5888a4b806af2b58b10c0c7b96f90b153d9f8c96737c066"
+=======
+content-hash = "5c05d75247a7beb09c8ed2ed5161cfccf54f7d4b96898624bbe898d7877e44d3"
+>>>>>>> develop
