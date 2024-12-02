@@ -1,7 +1,8 @@
 from . import auth
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Blueprint
 from models.users import db, User
 from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime
 
 @auth.route('/register', methods=['POST'])
 def register():
@@ -28,3 +29,23 @@ def register():
     db.session.commit()
 
     return jsonify({'message': 'User registered successfully'}), 201
+    
+@auth.route('/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    email = data.get('email', '').strip()
+    password = data.get('password', '').strip()
+    role = data.get('role', '').strip()
+
+    if not email or not password or not role:
+        return jsonify({'error': 'Email, password, and role are required'}), 400
+
+    user = User.query.filter_by(email=email, role=role).first()
+
+    if not user:
+        return jsonify({'error': 'Invalid email, password, or role'}), 401
+
+    if not check_password_hash(user.password_hash, password):
+        return jsonify({'error': 'Invalid email, password, or role'}), 401
+
+    return jsonify({'message': 'Login successful', 'user': user.email}), 200
