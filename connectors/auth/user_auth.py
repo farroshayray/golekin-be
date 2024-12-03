@@ -25,6 +25,15 @@ def register():
 
     if role in ['pedagang', 'driver'] and not agen_id:
         return jsonify({'error': 'Agen ID must be provided for "pedagang" or "driver" roles'}), 400
+    
+    if User.query.filter_by(email=email, role=role).first():
+        return jsonify({'error': 'Email already exists on the same role'}), 400
+    
+    if User.query.filter_by(username=username, role=role).first():
+        return jsonify({'error': 'Username already exists on the same role'}), 400
+    
+    if User.query.filter_by(phone_number=phone_number, role=role).first():
+        return jsonify({'error': 'phone number already exists on the same role'}), 400
 
     hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
     hashed_pin = generate_password_hash(pin, method='pbkdf2:sha256')
