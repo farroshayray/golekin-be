@@ -3,6 +3,7 @@ from flask import Flask, request, jsonify, Blueprint
 from models.users import db, User
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
+from flask_jwt_extended import create_access_token, unset_jwt_cookies, jwt_required, get_jwt_identity
 
 @auth.route('/register', methods=['POST'])
 def register():
@@ -56,5 +57,7 @@ def login():
 
     if not check_password_hash(user.password_hash, password):
         return jsonify({'error': 'Invalid email, password, or role'}), 401
+    
+    access_token = create_access_token(identity=user.email)
 
-    return jsonify({'message': 'Login successful', 'user': user.email}), 200
+    return jsonify({'message': 'Login successful', 'user': user.email, 'access_token': access_token}), 200
