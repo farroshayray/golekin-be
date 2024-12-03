@@ -5,9 +5,9 @@ from decimal import Decimal
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(255), unique=True, nullable=False)
+    username = db.Column(db.String(255), unique=False, nullable=False)
     fullname = db.Column(db.String(255), nullable=False)
-    email = db.Column(db.String(255), unique=True, nullable=False)
+    email = db.Column(db.String(255), unique=False, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     pin_hash = db.Column(db.String(255), nullable=False)
     balance = db.Column(db.Numeric(10, 2), default=0.0)
