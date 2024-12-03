@@ -1,8 +1,7 @@
 from flask import Flask
 from flask_cors import CORS
 from config import Config
-from models.users import db, User
-from models.products import db, Product
+from models import db
 from connectors.auth import auth as auth_blueprint
 import os
 from connectors.product import products as product_blueprint
