@@ -60,4 +60,4 @@ def login():
     
     access_token = create_access_token(identity=user.email)
 
-    return jsonify({'message': 'Login successful', 'user': user.email, 'access_token': access_token}), 200
+    return jsonify({'message': 'Login successful', 'user': user.email, 'role':user.role, 'access_token': access_token}), 200
