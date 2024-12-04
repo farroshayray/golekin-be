@@ -19,6 +19,21 @@ class Product(db.Model):
     is_active = db.Column(db.Integer, nullable=False, default=1)  
     created_at = db.Column(db.DateTime, default=datetime.utcnow)  
     updated_at = db.Column(db.DateTime, onupdate=datetime.utcnow) 
+    
+    def to_dict(self):
+        """Convert the Product instance into a dictionary."""
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "product_name": self.product_name,
+            "description": self.description,
+            "price": float(self.price),  # Ensure floats are JSON serializable
+            "stock": self.stock,
+            "category_id": self.category_id,
+            "image_url": self.image_url,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
 
 class Category(db.Model):
     __tablename__ = 'categories'
