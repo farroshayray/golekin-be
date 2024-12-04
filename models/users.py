@@ -4,6 +4,8 @@ from datetime import datetime
 from decimal import Decimal
 
 class User(db.Model):
+    __tablename__ = 'users'
+    
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(255), unique=False, nullable=False)
     fullname = db.Column(db.String(255), nullable=False)

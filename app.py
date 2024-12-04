@@ -5,6 +5,7 @@ from models import db
 from connectors.auth import auth as auth_blueprint
 import os
 from connectors.product import products as product_blueprint
+from connectors.transaction import transaction as transaction_blueprint
 from flask_jwt_extended import JWTManager, get_jwt_identity, jwt_required, unset_jwt_cookies
 
 
@@ -20,6 +21,7 @@ with app.app_context():
 # Register blueprint
 app.register_blueprint(auth_blueprint, url_prefix='/auth')
 app.register_blueprint(product_blueprint, url_prefix='/products')
+app.register_blueprint(transaction_blueprint, url_prefix='/transaction')
 
 # JWT handlers
 @jwt.expired_token_loader
