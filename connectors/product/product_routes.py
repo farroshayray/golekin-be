@@ -1,4 +1,6 @@
 from flask import request, jsonify
+# to_dict
+
 from models import db
 from models.products import Product
 from models.users import User
@@ -78,3 +80,24 @@ def add_product():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': f'An error occurred: {str(e)}'}), 500
+
+@products.route('/all_products', methods=['GET'])
+def get_products():
+    products = Product.query.all()
+    return jsonify({'products': [product.to_dict() for product in products]}), 200
+
+@products.route('/category_products/<category_id>', methods=['GET'])
+def get_category_products(category_id):
+    products = Product.query.filter_by(category_id=category_id).all()
+    category_name = Category.query.get(category_id).category_name
+    return jsonify({'category_name': category_name, 'products': [product.to_dict() for product in products]}), 200
+
+@products.route('/product/<product_id>', methods=['GET'])
+def get_product(product_id):
+    product = Product.query.get(product_id)
+    category_name = Category.query.get(product.category_id).category_name
+    shop_name = User.query.filter_by(id=product.user_id).first()
+    if product:
+        return jsonify({'catogory_name': category_name , 'shop_name': shop_name.fullname, 'product': product.to_dict()}), 200
+    else:
+        return jsonify({'error': 'Product not found'}), 404
