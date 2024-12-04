@@ -15,3 +15,5 @@ class Config:
     JWT_ACCESS_COOKIE_PATH = "/"
     JWT_COOKIE_CSRF_PROTECT = False  
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=60)
+    UPLOAD_FOLDER = os.path.join(os.getcwd(), "upload/uploaded_files")
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
