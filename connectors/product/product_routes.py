@@ -26,6 +26,10 @@ def add_category():
     db.session.commit()
 
     return jsonify({'message': 'Category added successfully'}), 201
+@products.route('/categories', methods=['GET'])
+def get_categories():
+    categories = Category.query.all()
+    return jsonify({'categories': [{'id': category.id, 'category_name': category.category_name, 'description': category.description, 'image_url': category.image_url} for category in categories]}), 200
 
 @products.route('/add_product', methods=['POST'])
 @jwt_required()
