@@ -12,7 +12,7 @@ def test_user():
 def get_agents():
     agents = User.query.filter_by(role='agen').all()
     if not agents:
-        return jsonify({'error': 'No agents found'}), 404
+        return jsonify({'agents': []}), 200
     
     agents_data = []
     for agent in agents:
