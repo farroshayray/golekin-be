@@ -66,12 +66,22 @@ def get_products():
     products = Product.query.all()
     return jsonify({'products': [product.to_dict() for product in products]}), 200
 
-@products.route('/category_products/<category_id>', methods=['GET'])
+@products.route('/category_products/<int:category_id>', methods=['GET'])
 def get_category_products(category_id):
-    products = Product.query.filter_by(category_id=category_id).all()
-    category_name = Category.query.get(category_id).category_name
-    return jsonify({'category_name': category_name, 'products': [product.to_dict() for product in products]}), 200
+    print(f"Fetching products for category ID: {category_id}")
+    category = Category.query.get(category_id)
+    if not category:
+        print(f"Category ID {category_id} not found")
+        return jsonify({'error': 'Category not found'}), 404
 
+    products = Product.query.filter_by(category_id=category_id).all()
+    print(f"Products found: {products}")
+    return jsonify({
+        'category_name': category.category_name,
+        'products': [product.to_dict() for product in products]
+    }), 200
+
+    
 @products.route('/product/<product_id>', methods=['GET'])
 def get_product(product_id):
     product = Product.query.get(product_id)
