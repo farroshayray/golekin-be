@@ -11,6 +11,8 @@ def register():
     username = data.get('username', '').strip()
     fullname = data.get('fullname', '').strip()
     email = data.get('email', '').strip()
+    description = data.get('description', '').strip()
+    image_url = data.get('image_url', '').strip()
     password = data.get('password', '').strip()
     pin = data.get('pin', '').strip()
     role = data.get('role', '').strip()
@@ -40,7 +42,7 @@ def register():
 
     try:
         user = User(username=username, fullname=fullname, email=email, password_hash=hashed_password, 
-                    pin_hash=hashed_pin, role=role, phone_number=phone_number, agen_id=agen_id, location=location)
+                    description=description, image_url=image_url, pin_hash=hashed_pin, role=role, phone_number=phone_number, agen_id=agen_id, location=location)
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     

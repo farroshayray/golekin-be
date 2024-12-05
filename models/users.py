@@ -10,6 +10,7 @@ class User(db.Model):
     username = db.Column(db.String(255), unique=False, nullable=False)
     fullname = db.Column(db.String(255), nullable=False)
     email = db.Column(db.String(255), unique=False, nullable=False)
+    description = db.Column(db.Text, nullable=True)
     password_hash = db.Column(db.String(255), nullable=False)
     pin_hash = db.Column(db.String(255), nullable=False)
     balance = db.Column(db.Numeric(10, 2), default=0.0)
@@ -17,8 +18,27 @@ class User(db.Model):
     agen_id = db.Column(db.Integer, nullable=True)  # Agen ID di sini, bisa null jika tidak pedagang/driver
     location = db.Column(db.String(255), nullable=True)
     role = db.Column(db.Enum('konsumen', 'pedagang', 'agen', 'driver'), nullable=False)
+    image_url = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, onupdate=datetime.utcnow)
+    
+    def to_dict(self):
+        """Return a dictionary representation of the User."""
+        return {
+            "id": self.id,
+            "username": self.username,
+            "fullname": self.fullname,
+            "email": self.email,
+            "description": self.description,
+            "balance": float(self.balance),  # Convert Decimal to float for JSON serialization
+            "phone_number": self.phone_number,
+            "agen_id": self.agen_id,
+            "location": self.location,
+            "role": self.role,
+            "image_url": self.image_url,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
