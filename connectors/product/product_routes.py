@@ -1,6 +1,4 @@
 from flask import request, jsonify
-# to_dict
-
 from models import db
 from models.products import Product
 from models.users import User
@@ -13,25 +11,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 def test_product():
     return jsonify({'message': 'Product route is working!'}), 200
 
-@products.route('/add_category', methods=['POST'])
-def add_category():
-    data = request.get_json()
-    category_name = data.get('category_name', '').strip()
-    description = data.get('description', '').strip()
-    image_url = data.get('image_url', '').strip()
-
-    if not category_name:
-        return jsonify({'error': 'Category name is required'}), 400
-
-    new_category = Category(category_name=category_name, description=description, image_url=image_url)
-    db.session.add(new_category)
-    db.session.commit()
-
-    return jsonify({'message': 'Category added successfully'}), 201
-@products.route('/categories', methods=['GET'])
-def get_categories():
-    categories = Category.query.all()
-    return jsonify({'categories': [{'id': category.id, 'category_name': category.category_name, 'description': category.description, 'image_url': category.image_url} for category in categories]}), 200
+#products
 
 @products.route('/add_product', methods=['POST'])
 @jwt_required()
@@ -101,3 +81,33 @@ def get_product(product_id):
         return jsonify({'catogory_name': category_name , 'shop_name': shop_name.fullname, 'product': product.to_dict()}), 200
     else:
         return jsonify({'error': 'Product not found'}), 404
+    
+    
+# categories
+@products.route('/add_category', methods=['POST'])
+def add_category():
+    data = request.get_json()
+    category_name = data.get('category_name', '').strip()
+    description = data.get('description', '').strip()
+    image_url = data.get('image_url', '').strip()
+
+    if not category_name:
+        return jsonify({'error': 'Category name is required'}), 400
+
+    new_category = Category(category_name=category_name, description=description, image_url=image_url)
+    db.session.add(new_category)
+    db.session.commit()
+
+    return jsonify({'message': 'Category added successfully'}), 201
+@products.route('/categories', methods=['GET'])
+def get_categories():
+    categories = Category.query.all()
+    return jsonify({'categories': [{'id': category.id, 'category_name': category.category_name, 'description': category.description, 'image_url': category.image_url} for category in categories]}), 200
+
+@products.route('/category/<category_id>', methods=['GET'])
+def get_category(category_id):
+    category = Category.query.get(category_id)
+    if not category:
+        return jsonify({'error': 'Category not found'}), 404
+    return jsonify({'category': {'id': category.id, 'category_name': category.category_name, 'description': category.description, 'image_url': category.image_url}}), 200
+

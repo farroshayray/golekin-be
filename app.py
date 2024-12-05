@@ -7,6 +7,7 @@ import os
 from connectors.product import products as product_blueprint
 from connectors.transaction import transaction as transaction_blueprint
 from connectors.upload_file import upload_file as upload_blueprint
+from connectors.user import user as user_blueprint
 from flask_jwt_extended import JWTManager, get_jwt_identity, jwt_required, unset_jwt_cookies
 
 
@@ -24,6 +25,7 @@ app.register_blueprint(auth_blueprint, url_prefix='/auth')
 app.register_blueprint(product_blueprint, url_prefix='/products')
 app.register_blueprint(transaction_blueprint, url_prefix='/transaction')
 app.register_blueprint(upload_blueprint, url_prefix='/upload')
+app.register_blueprint(user_blueprint, url_prefix='/user')
 
 # JWT handlers
 @jwt.expired_token_loader
