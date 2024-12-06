@@ -121,3 +121,10 @@ def get_category(category_id):
         return jsonify({'error': 'Category not found'}), 404
     return jsonify({'category': {'id': category.id, 'category_name': category.category_name, 'description': category.description, 'image_url': category.image_url}}), 200
 
+# semua product yang dibuat oleh sebuah agen
+@products.route('/agen_products/<int:agen_id>', methods=['GET'])
+def get_agen_products(agen_id):
+    products = Product.query.filter_by(user_id=agen_id).all()
+    if not products:
+        return jsonify({'error': 'Products not found'}), 404
+    return jsonify({'products': [product.to_dict() for product in products]}), 200

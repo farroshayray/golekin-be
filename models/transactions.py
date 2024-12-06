@@ -10,7 +10,7 @@ class Transaction(db.Model):
     from_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     to_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
-    driver_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    driver_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     total_amount = db.Column(db.Float, nullable=False)
     type = db.Column(db.Enum('withdrawal', 'transfer', 'deposit'), nullable=False)
     status = db.Column(db.Enum('cart', 'ordered', 'processed', 'completed'), nullable=False)
@@ -18,7 +18,60 @@ class Transaction(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, onupdate=datetime.utcnow)
     
+    transaction_items = db.relationship('TransactionItems', backref='transaction', lazy=True)
     delivery = db.relationship('Delivery', backref='transaction', lazy=True)
+    
+    def to_dict(self):
+        """Convert the Transaction instance into a dictionary."""
+        # Fetch market/agent name
+        market = User.query.filter_by(id=self.to_user_id, role="agen").first()
+        market_name = market.fullname if market else "Unknown Market"
+
+        # Fetch product details for each item
+        items = []
+        for item in self.transaction_items:
+            product = Product.query.get(item.product_id)
+            if product:
+                items.append({
+                    "id": item.id,
+                    "product_id": item.product_id,
+                    "product_name": product.product_name,
+                    "product_description": product.description,
+                    "product_price": product.price,
+                    "product_image_url": product.image_url,
+                    "quantity": item.quantity,
+                    "subtotal": item.subtotal,
+                })
+
+        return {
+            "id": self.id,
+            "from_user_id": self.from_user_id,
+            "to_user_id": self.to_user_id,
+            "market_name": market_name,
+            "total_amount": self.total_amount,
+            "status": self.status,
+            "description": self.description,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "items": items,
+        }
+
+    # def to_dict(self):
+    #     """Convert the Transaction instance into a dictionary."""
+    #     return {
+    #         "id": self.id,
+    #         "from_user_id": self.from_user_id,
+    #         "to_user_id": self.to_user_id,
+    #         "product_id": self.product_id,
+    #         "driver_id": self.driver_id,
+    #         "total_amount": self.total_amount,
+    #         "type": self.type,
+    #         "status": self.status,
+    #         "description": self.description,
+    #         "created_at": self.created_at.isoformat() if self.created_at else None,
+    #         "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+    #         "items": [item.to_dict() for item in self.transaction_items],
+    #     }
     
     
 class TransactionItems(db.Model):
@@ -31,6 +84,18 @@ class TransactionItems(db.Model):
     subtotal = db.Column(db.Float, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, onupdate=datetime.utcnow)
+    
+    def to_dict(self):
+        """Convert the TransactionItems instance into a dictionary."""
+        return {
+            "id": self.id,
+            "transaction_id": self.transaction_id,
+            "product_id": self.product_id,
+            "quantity": self.quantity,
+            "subtotal": self.subtotal,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
     
 class Delivery(db.Model):
     __tablename__ = 'deliveries'

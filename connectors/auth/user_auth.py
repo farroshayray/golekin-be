@@ -77,5 +77,6 @@ def login():
                     'fullname': user.fullname,
                     'phone_number': user.phone_number,
                     'agen_id': user.agen_id,
-                    'role':user.role, 
+                    'role': user.role, 
+                    'id': user.id,
                     'access_token': access_token}), 200
