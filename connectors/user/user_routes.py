@@ -24,6 +24,7 @@ def get_agents():
             "balance": float(agent.balance),  # Convert Decimal to float for JSON serialization
             "phone_number": agent.phone_number,
             "location": agent.location,
+            "image_url": agent.image_url,
             "role": agent.role,
             "created_at": agent.created_at.isoformat() if agent.created_at else None,
             "updated_at": agent.updated_at.isoformat() if agent.updated_at else None,
