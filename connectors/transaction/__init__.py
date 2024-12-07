@@ -1,5 +1,5 @@
 from flask import Blueprint
 
-transaction = Blueprint("transaction", __name__)
+transactions = Blueprint("transaction", __name__)
 
 from . import user_transaction
