@@ -17,7 +17,7 @@ class User(db.Model):
     phone_number = db.Column(db.String(100), nullable=False)
     agen_id = db.Column(db.Integer, nullable=True)  # Agen ID di sini, bisa null jika tidak pedagang/driver
     location = db.Column(db.String(255), nullable=True)
-    role = db.Column(db.Enum('konsumen', 'pedagang', 'agen', 'driver'), nullable=False)
+    role = db.Column(db.Enum('konsumen', 'pedagang', 'agen', 'driver', 'admin'), nullable=False)
     image_url = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, onupdate=datetime.utcnow)
