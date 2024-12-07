@@ -11,10 +11,13 @@ class Transaction(db.Model):
     to_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
     driver_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    shipping_cost = db.Column(db.Float, nullable=False)
     total_amount = db.Column(db.Float, nullable=False)
     type = db.Column(db.Enum('withdrawal', 'transfer', 'deposit'), nullable=False)
     status = db.Column(db.Enum('cart', 'ordered', 'processed', 'completed'), nullable=False)
     description = db.Column(db.String(255))
+    user_location = db.Column(db.String(255), nullable=True)
+    driver_location = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, onupdate=datetime.utcnow)
     
@@ -49,29 +52,17 @@ class Transaction(db.Model):
             "to_user_id": self.to_user_id,
             "market_name": market_name,
             "total_amount": self.total_amount,
+            "driver_id": self.driver_id,
+            "type": self.type,
+            "shipping_cost": self.shipping_cost,
             "status": self.status,
             "description": self.description,
+            "user_location": self.user_location,
+            "driver_location": self.driver_location,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "items": items,
         }
-
-    # def to_dict(self):
-    #     """Convert the Transaction instance into a dictionary."""
-    #     return {
-    #         "id": self.id,
-    #         "from_user_id": self.from_user_id,
-    #         "to_user_id": self.to_user_id,
-    #         "product_id": self.product_id,
-    #         "driver_id": self.driver_id,
-    #         "total_amount": self.total_amount,
-    #         "type": self.type,
-    #         "status": self.status,
-    #         "description": self.description,
-    #         "created_at": self.created_at.isoformat() if self.created_at else None,
-    #         "updated_at": self.updated_at.isoformat() if self.updated_at else None,
-    #         "items": [item.to_dict() for item in self.transaction_items],
-    #     }
     
     
 class TransactionItems(db.Model):

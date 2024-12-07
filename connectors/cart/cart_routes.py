@@ -109,7 +109,48 @@ def add_to_cart(user_id):
 
     except IntegrityError:
         db.session.rollback()
-        print(str(e))
+        return jsonify({"error": "Database integrity error", "details": str(e)}), 500
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": "An error occurred", "details": str(e)}), 500
+    
+@cart.route("/delete/<int:user_id>/<int:product_id>", methods=["DELETE"])
+def delete_from_cart(user_id, product_id):
+    try:
+        # Find the transaction containing the product for the given user
+        transaction_item = TransactionItems.query.join(Transaction).filter(
+            TransactionItems.product_id == product_id,
+            Transaction.from_user_id == user_id,
+            Transaction.status == "cart"
+        ).first()
+
+        if not transaction_item:
+            return jsonify({"error": "Product not found in the cart"}), 404
+
+        # Update the transaction's total amount
+        transaction = Transaction.query.get(transaction_item.transaction_id)
+        if transaction:
+            transaction.total_amount -= transaction_item.subtotal
+
+        # Restore the product's stock
+        product = Product.query.get(product_id)
+        if product:
+            product.stock += transaction_item.quantity
+
+        # Delete the transaction item
+        db.session.delete(transaction_item)
+
+        # If the transaction has no more items, delete it as well
+        remaining_items = TransactionItems.query.filter_by(transaction_id=transaction.id).count()
+        if remaining_items == 0:
+            db.session.delete(transaction)
+
+        db.session.commit()
+
+        return jsonify({"message": "Product removed from cart successfully"}), 200
+
+    except IntegrityError:
+        db.session.rollback()
         return jsonify({"error": "Database error"}), 500
     except Exception as e:
         db.session.rollback()
