@@ -1,4 +1,5 @@
 from flask import Blueprint, jsonify, request
+from . import transactions
 from models import db
 from flask_jwt_extended import get_jwt_identity
 from models.users import User
@@ -7,7 +8,6 @@ from models.transactions import TransactionItems
 from models.transactions import Delivery
 
 # Create a Blueprint for transaction related routes
-transactions = Blueprint('transactions', __name__)
 
 @transactions.route('/', methods=['GET'])
 def transaction():
@@ -131,3 +131,42 @@ def delete_transaction_item(item_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": "An error occurred while deleting the transaction item.", "details": str(e)}), 500
+
+@transactions.route("/status_cart/agent/<int:agent_id>", methods=["GET"])
+def get_transactions_by_consumer(agent_id):
+    """
+    Get transactions grouped by consumers for a specific agent (market).
+    :param agent_id: The ID of the agent (market).
+    :return: JSON response with grouped transactions.
+    """
+    try:
+        # Fetch transactions for the given agent where the status is "cart"
+        transactions = Transaction.query.filter_by(to_user_id=agent_id, status="cart").all()
+
+        if not transactions:
+            return jsonify({"message": "No transactions found for this agent."}), 404
+
+        # Group transactions by consumers (from_user_id)
+        grouped_transactions = {}
+        for transaction in transactions:
+            consumer_id = transaction.from_user_id
+            if consumer_id not in grouped_transactions:
+                # Add consumer to the group with their details
+                consumer = User.query.get(consumer_id)
+                grouped_transactions[consumer_id] = {
+                    "consumer_id": consumer_id,
+                    "consumer_name": consumer.fullname if consumer else "Unknown",
+                    "transactions": [],
+                }
+            
+            # Add the transaction to the consumer's group
+            grouped_transactions[consumer_id]["transactions"].append(transaction.to_dict())
+
+        # Convert the grouped transactions to a list for JSON serialization
+        grouped_transactions_list = list(grouped_transactions.values())
+
+        return jsonify({"grouped_transactions": grouped_transactions_list}), 200
+
+    except Exception as e:
+        print("Error fetching transactions by consumer:", e)
+        return jsonify({"error": "An error occurred while fetching transactions.", "details": str(e)}), 500
