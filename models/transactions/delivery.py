@@ -1,5 +1,7 @@
 from .. import db
 from datetime import datetime
+from models.users import User
+from models.products import Product
 
 class Delivery(db.Model):
     __tablename__ = 'deliveries'

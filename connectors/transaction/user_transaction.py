@@ -2,9 +2,9 @@ from flask import Blueprint, jsonify, request
 from models import db
 from flask_jwt_extended import get_jwt_identity
 from models.users import User
-from models.transactions.transaction import Transaction
-from models.transactions.transaction_items import TransactionItems
-from models.transactions.delivery import Delivery
+from models.transactions import Transaction
+from models.transactions import TransactionItems
+from models.transactions import Delivery
 
 # Create a Blueprint for transaction related routes
 transactions = Blueprint('transactions', __name__)
