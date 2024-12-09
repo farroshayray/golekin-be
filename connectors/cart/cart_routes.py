@@ -1,7 +1,7 @@
 from . import cart
 from flask import Blueprint, request, jsonify
 from sqlalchemy.exc import IntegrityError
-from models.transactions import Transaction, TransactionItems
+from models.transactions.transaction import Transaction, TransactionItems
 from models.products import Product
 from models.users import User
 from models import db
