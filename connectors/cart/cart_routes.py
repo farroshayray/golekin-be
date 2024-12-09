@@ -23,7 +23,6 @@ def get_cart(user_id):
 def add_to_cart(user_id):
     try:
         data = request.json
-        user_id = user_id
         product_id = data.get("product_id")
         quantity = data.get("quantity")
 
@@ -50,7 +49,6 @@ def add_to_cart(user_id):
             transaction = Transaction(
                 from_user_id=user_id,
                 to_user_id=product.user_id,
-                product_id=product_id,  # Optional if the main product is needed
                 driver_id=None,  # Will be assigned later
                 total_amount=0.0,  # Will be updated
                 type="transfer",
@@ -102,11 +100,11 @@ def add_to_cart(user_id):
                         "product_id": item.product_id,
                         "quantity": item.quantity,
                         "subtotal": item.subtotal
-                    } for item in transaction.transaction_items  # This now works correctly
+                    } for item in transaction.transaction_items
                 ]
             }
         }), 201
-        
+
     except IntegrityError as e:
         db.session.rollback()
         print("Integrity Error:", e)
@@ -117,12 +115,6 @@ def add_to_cart(user_id):
         print("General Error:", e)
         return jsonify({"error": "An error occurred", "details": str(e)}), 500
 
-    except IntegrityError:
-        db.session.rollback()
-        return jsonify({"error": "Database integrity error", "details": str(e)}), 500
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": "An error occurred", "details": str(e)}), 500
     
 @cart.route("/delete/<int:user_id>/<int:product_id>", methods=["DELETE"])
 def delete_from_cart(user_id, product_id):
