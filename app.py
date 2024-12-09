@@ -4,7 +4,7 @@ from config import Config
 from models import db
 from connectors.auth import auth as auth_blueprint
 from connectors.product import products as product_blueprint
-from connectors.transaction import transactions as transaction_blueprint  
+from connectors.transaction import transactions as transaction_blueprint
 from connectors.upload_file import upload_file as upload_blueprint
 from connectors.user import user as user_blueprint
 from connectors.cart import cart as cart_blueprint  
