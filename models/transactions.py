@@ -11,7 +11,7 @@ class Transaction(db.Model):
     to_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
     driver_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    shipping_cost = db.Column(db.Float, nullable=False)
+    shipping_cost = db.Column(db.Float, nullable=True)
     total_amount = db.Column(db.Float, nullable=False)
     type = db.Column(db.Enum('withdrawal', 'transfer', 'deposit'), nullable=False)
     status = db.Column(db.Enum('cart', 'ordered', 'processed', 'completed'), nullable=False)

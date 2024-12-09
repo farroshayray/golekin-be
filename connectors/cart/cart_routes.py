@@ -106,6 +106,16 @@ def add_to_cart(user_id):
                 ]
             }
         }), 201
+        
+    except IntegrityError as e:
+        db.session.rollback()
+        print("Integrity Error:", e)
+        return jsonify({"error": "Database integrity error", "details": str(e)}), 500
+
+    except Exception as e:
+        db.session.rollback()
+        print("General Error:", e)
+        return jsonify({"error": "An error occurred", "details": str(e)}), 500
 
     except IntegrityError:
         db.session.rollback()
