@@ -213,13 +213,13 @@ def update_delivery_location():
 
         # Calculate shipping cost (e.g., 5000 per km)
         if distance_km <= 1:
-            cost_per_km = 5000;
+            cost_per_km = 8000;
         elif distance_km <= 2:
-            cost_per_km = 4000;
+            cost_per_km = 6000;
         elif distance_km <= 3:
-            cost_per_km = 3000;
+            cost_per_km = 5000;
         else:
-            cost_per_km = 2000; 
+            cost_per_km = 4000; 
             
         shipping_cost = round(distance_km * cost_per_km, 2)
         if shipping_cost < 5000:
