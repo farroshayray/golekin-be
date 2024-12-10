@@ -79,4 +79,5 @@ def login():
                     'agen_id': user.agen_id,
                     'role': user.role, 
                     'id': user.id,
+                    'image_url': user.image_url,
                     'access_token': access_token}), 200
