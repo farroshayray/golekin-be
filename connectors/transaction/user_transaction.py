@@ -1,11 +1,13 @@
 from flask import Blueprint, jsonify, request
+import json
 from . import transactions
 from models import db
-from flask_jwt_extended import get_jwt_identity
+from flask_jwt_extended import get_jwt_identity, jwt_required
 from models.users import User
 from models.transactions import Transaction
 from models.transactions import TransactionItems
 from models.transactions import Delivery
+from geopy.distance import geodesic
 
 # Create a Blueprint for transaction related routes
 
@@ -88,6 +90,13 @@ def get_transaction_item(item_id):
 
     except Exception as e:
         return jsonify({"error": "An error occurred while fetching the transaction item.", "details": str(e)}), 500
+    
+@transactions.route("/detail/<int:transaction_id>", methods=["GET"])
+def get_transaction_detail(transaction_id):
+    transaction = Transaction.query.filter_by(id=transaction_id, status="cart").first()
+    if not transaction:
+        return jsonify({"error": "Transaction not found"}), 404
+    return jsonify({"transaction": transaction.to_dict()}), 200
 
 @transactions.route('/get_delivery/<int:delivery_id>', methods=['GET'])
 def get_delivery(delivery_id):
@@ -170,3 +179,91 @@ def get_transactions_by_consumer(agent_id):
     except Exception as e:
         print("Error fetching transactions by consumer:", e)
         return jsonify({"error": "An error occurred while fetching transactions.", "details": str(e)}), 500
+
+# put user_location on transaction database
+@transactions.route('/delivery_location', methods=['PUT'])
+@jwt_required()
+def update_delivery_location():
+    try:
+        data = request.get_json()
+        transaction_id = data.get('transaction_id')
+        location = data.get('location')  # Expected format: {"lat": -7.824557, "lng": 110.373333}
+
+        if not transaction_id or not location:
+            return jsonify({'error': 'Missing required fields'}), 400
+
+        # Fetch the transaction
+        transaction = Transaction.query.get(transaction_id)
+        if not transaction:
+            return jsonify({'error': 'Transaction not found'}), 404
+
+        # Fetch the agent (to_user_id is the agent ID)
+        agent = User.query.filter_by(id=transaction.to_user_id, role='agen').first()
+        if not agent or not agent.location:
+            return jsonify({'error': 'Agent location not found'}), 404
+
+        # Calculate the distance
+        user_location = (location['lat'], location['lng'])
+        try:
+            agent_location = json.loads(agent.location)  # Agent location should be stored as JSON in DB
+            agent_coords = (agent_location['lat'], agent_location['lng'])
+            distance_km = geodesic(user_location, agent_coords).kilometers
+        except (KeyError, TypeError, ValueError) as e:
+            return jsonify({'error': 'Invalid agent location format', 'details': str(e)}), 400
+
+        # Calculate shipping cost (e.g., 5000 per km)
+        if distance_km <= 1:
+            cost_per_km = 5000;
+        elif distance_km <= 2:
+            cost_per_km = 4000;
+        elif distance_km <= 3:
+            cost_per_km = 3000;
+        else:
+            cost_per_km = 2000; 
+            
+        shipping_cost = round(distance_km * cost_per_km, 2)
+        if shipping_cost < 5000:
+            shipping_cost = 5000
+
+        # Update transaction with user location and shipping cost
+        transaction.user_location = json.dumps(location)
+        transaction.shipping_cost = shipping_cost
+
+        db.session.commit()
+
+        return jsonify({
+            'message': 'Delivery location and shipping cost updated successfully',
+            'distance_km': round(distance_km, 2),
+            'shipping_cost': shipping_cost
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print("Error updating delivery location and shipping cost:", e)
+        return jsonify({'error': 'An error occurred', 'details': str(e)}), 500
+
+@transactions.route('/update_description', methods=['PUT'])
+@jwt_required()
+def update_transaction_description():
+    try:
+        data = request.get_json()
+        transaction_id = data.get('transaction_id')
+        description = data.get('description')
+
+        if not transaction_id or not description:
+            return jsonify({'error': 'Missing required fields'}), 400
+
+        # Fetch the transaction
+        transaction = Transaction.query.get(transaction_id)
+        if not transaction:
+            return jsonify({'error': 'Transaction not found'}), 404
+
+        # Update the description
+        transaction.description = description
+        db.session.commit()
+
+        return jsonify({'message': 'Description updated successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        print("Error updating transaction description:", e)
+        return jsonify({'error': 'An error occurred', 'details': str(e)}), 500

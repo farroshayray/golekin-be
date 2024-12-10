@@ -1,6 +1,10 @@
 from . import user
 from models.users import User
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
+from models import db, users
+from werkzeug.security import check_password_hash
+from flask_jwt_extended import jwt_required, get_jwt_identity
+
 
 @user.route('/', methods=['GET'])
 def test_user():
@@ -31,3 +35,57 @@ def get_agents():
         })
     
     return jsonify({'agents': agents_data}), 200
+
+@user.route('/topup', methods=['POST'])
+@jwt_required()
+def topup_balance():
+    try:
+        data = request.get_json()
+        user_id = get_jwt_identity()
+        amount = data.get('amount', 0)
+        pin = data.get('pin', '')
+
+        if not amount or amount <= 0:
+            return jsonify({"error": "Invalid amount"}), 400
+
+        if not pin:
+            return jsonify({"error": "PIN is required"}), 400
+
+        user = User.query.get(user_id)
+
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        if not check_password_hash(user.pin_hash, pin):
+            return jsonify({"error": "Invalid PIN"}), 403
+
+        user.balance += amount
+        db.session.commit()
+
+        return jsonify({
+            "message": "Top-up successful",
+            "balance": float(user.balance)  # Convert Decimal to float
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error during top-up: {e}")
+        return jsonify({"error": "An error occurred during top-up", "details": str(e)}), 500
+    
+@user.route('/get_balance', methods=['GET'])
+@jwt_required()
+def get_balance():
+    try:
+        user_id = get_jwt_identity()
+        user = User.query.get(user_id)
+
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        return jsonify({
+            "balance": float(user.balance)  # Convert Decimal to float
+        }), 200
+
+    except Exception as e:
+        print(f"Error while getting balance: {e}")
+        return jsonify({"error": "An error occurred while getting balance", "details": str(e)}), 500
