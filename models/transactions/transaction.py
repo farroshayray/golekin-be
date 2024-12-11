@@ -13,7 +13,7 @@ class Transaction(db.Model):
     shipping_cost = db.Column(db.Float, nullable=True)
     total_amount = db.Column(db.Float, nullable=False)
     type = db.Column(db.Enum('withdrawal', 'transfer', 'deposit'), nullable=True)
-    status = db.Column(db.Enum('cart', 'ordered', 'processed', 'completed'), nullable=False)
+    status = db.Column(db.Enum('cart', 'ordered', 'processed', 'taken', 'completed'), nullable=False)
     description = db.Column(db.String(255))
     user_location = db.Column(db.String(255), nullable=True)
     driver_location = db.Column(db.String(255), nullable=True)
