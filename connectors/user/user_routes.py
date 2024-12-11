@@ -89,3 +89,41 @@ def get_balance():
     except Exception as e:
         print(f"Error while getting balance: {e}")
         return jsonify({"error": "An error occurred while getting balance", "details": str(e)}), 500
+    
+# udpate balance for transaction (plus or minus)
+@user.route('/update_balance', methods=['PUT'])
+@jwt_required()
+def update_balance():
+    try:
+        data = request.get_json()
+        user_id = get_jwt_identity()
+        amount = data.get('amount', 0)
+        plus_minus = data.get('plus_minus', '')
+
+        if not amount:
+            return jsonify({"error": "Amount is required"}), 400
+        if not plus_minus:
+            return jsonify({"error": "plus_minus is required"}), 400
+
+        user = User.query.get(user_id)
+
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        
+        if plus_minus == 'plus':
+            user.balance += amount
+        elif plus_minus == 'minus':
+            user.balance -= amount
+            if user.balance < amount:
+                return jsonify({"error": "Insufficient balance"}), 403
+        db.session.commit()
+
+        return jsonify({
+            "message": "Balance updated successfully",
+            "balance": float(user.balance)  # Convert Decimal to float
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error while updating balance: {e}")
+        return jsonify({"error": "An error occurred while updating balance", "details": str(e)}), 500
