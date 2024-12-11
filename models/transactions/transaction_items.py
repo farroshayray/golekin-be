@@ -2,6 +2,7 @@ from .. import db
 from datetime import datetime
 from models.users import User
 from models.products import Product
+from sqlalchemy.orm import relationship
 
 class TransactionItems(db.Model):
     __tablename__ = 'transaction_items'
@@ -13,6 +14,8 @@ class TransactionItems(db.Model):
     subtotal = db.Column(db.Float, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, onupdate=datetime.utcnow)
+    
+    product = relationship("Product", backref="transaction_items")
     
     def to_dict(self):
         """Convert the TransactionItems instance into a dictionary."""
