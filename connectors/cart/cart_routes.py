@@ -6,6 +6,7 @@ from models.products import Product
 from models.users import User
 from models import db
 from datetime import datetime
+from flask_jwt_extended import get_jwt_identity, jwt_required
 
 #test blueprint
 @cart.route('/', methods=['GET'])
@@ -17,6 +18,47 @@ def test_cart():
 def get_cart(user_id):
     transactions = Transaction.query.filter_by(from_user_id=user_id, status="cart").all()
     return jsonify({"cart": [transaction.to_dict() for transaction in transactions]}), 200
+
+@cart.route("/update_quantity", methods=["PUT"])
+@jwt_required()
+def update_quantity():
+    try:
+        # Ambil data dari request JSON
+        data = request.get_json()
+        item_id = data.get("item_id")  # ID dari item dalam keranjang
+        quantity = data.get("quantity")  # Quantity baru yang akan diupdate
+
+        if not item_id or quantity is None:
+            return jsonify({"error": "item_id and quantity are required."}), 400
+
+        if quantity <= 0:
+            return jsonify({"error": "Quantity must be greater than 0."}), 400
+
+        # Cari item dalam database
+        item = TransactionItems.query.get(item_id)
+        if not item:
+            return jsonify({"error": "Item not found."}), 404
+
+        # Update quantity dan subtotal
+        item.quantity = quantity
+        item.subtotal = item.quantity * item.product.price  # Hitung ulang subtotal
+        db.session.commit()
+
+        # Kembalikan response dengan data yang diperbarui
+        return jsonify({
+            "message": "Quantity updated successfully.",
+            "item": {
+                "id": item.id,
+                "product_id": item.product_id,
+                "quantity": item.quantity,
+                "subtotal": item.subtotal
+            }
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": "An error occurred.", "details": str(e)}), 500
+
 
 
 @cart.route("/add/<int:user_id>", methods=["POST"])
