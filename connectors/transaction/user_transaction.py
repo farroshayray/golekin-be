@@ -3,6 +3,7 @@ import json
 from . import transactions
 from models import db
 from flask_jwt_extended import get_jwt_identity, jwt_required
+from werkzeug.security import check_password_hash
 from models.users import User
 from models.transactions import Transaction
 from models.transactions import TransactionItems
@@ -299,6 +300,106 @@ def get_transactions_by_consumer_taken(agent_id):
         print("Error fetching transactions by consumer:", e)
         return jsonify({"error": "An error occurred while fetching transactions.", "details": str(e)}), 500
 
+@transactions.route("/status_taken_driver/agent/<int:agent_id>/<int:driver_id>", methods=["GET"])
+@jwt_required()
+def get_transactions_by_consumer_taken_driver(agent_id, driver_id):
+    """
+    Get transactions grouped by consumers for a specific agent (market).
+    :param agent_id: The ID of the agent (market).
+    :return: JSON response with grouped transactions.
+    """
+    try:
+        # Fetch transactions for the given agent where the status is "cart"
+        transactions = Transaction.query.filter_by(to_user_id=agent_id, status="taken", driver_id=driver_id).all()
+
+        if not transactions:
+            return jsonify({"message": "No transactions found for this agent."}), 404
+        
+
+        # Group transactions by consumers (from_user_id)
+        grouped_transactions = {}
+        for transaction in transactions:
+            consumer_id = transaction.from_user_id
+            if consumer_id not in grouped_transactions:
+                # Add consumer to the group with their details
+                consumer = User.query.get(consumer_id)
+                grouped_transactions[consumer_id] = {
+                    "consumer_id": consumer_id,
+                    "consumer_name": consumer.fullname if consumer else "Unknown",
+                    "transactions": [],
+                }
+            
+            # Add the transaction to the consumer's group
+            grouped_transactions[consumer_id]["transactions"].append(transaction.to_dict())
+
+        # Convert the grouped transactions to a list for JSON serialization
+        grouped_transactions_list = list(grouped_transactions.values())
+
+        return jsonify({"grouped_transactions": grouped_transactions_list}), 200
+
+    except Exception as e:
+        print("Error fetching transactions by consumer:", e)
+        return jsonify({"error": "An error occurred while fetching transactions.", "details": str(e)}), 500
+    
+@transactions.route("/assign_driver", methods=["PUT"])
+@jwt_required()
+def assign_driver():
+    """
+    Assign a driver to a transaction and update its status to 'taken'.
+    Prevents reassignment if a driver is already assigned.
+    """
+    try:
+        # Parse input data
+        data = request.get_json()
+        transaction_id = data.get('transaction_id')
+        driver_id = data.get('driver_id')
+        status = data.get('status', 'taken')
+
+        # Validate input
+        if not transaction_id or not driver_id:
+            return jsonify({"error": "Both transaction_id and driver_id are required."}), 400
+
+        # Fetch the transaction
+        transaction = Transaction.query.get(transaction_id)
+        if not transaction:
+            return jsonify({"error": "Transaction not found."}), 404
+
+        # Check if a driver is already assigned
+        if transaction.driver_id is not None:
+            return jsonify({
+                "error": "A driver is already assigned to this transaction.", 
+                "existing_driver_id": transaction.driver_id
+            }), 400
+
+        # Verify driver exists
+        driver = User.query.get(driver_id)
+        if not driver or driver.role != 'driver':
+            return jsonify({"error": "Invalid driver."}), 404
+
+        # Validate status
+        if status != 'taken':
+            return jsonify({"error": "Invalid status. Only 'taken' is allowed."}), 400
+
+        # Assign the driver and update status
+        transaction.driver_id = driver_id
+        transaction.status = status
+        db.session.commit()
+
+        return jsonify({
+            "message": "Driver assigned and transaction status updated successfully.",
+            "transaction_id": transaction_id,
+            "driver_id": driver_id,
+            "status": status
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "error": "An error occurred while assigning the driver and updating status.", 
+            "details": str(e)
+        }), 500
+
+
 # put user_location on transaction database
 @transactions.route('/delivery_location', methods=['PUT'])
 @jwt_required()
@@ -388,6 +489,10 @@ def update_transaction_description():
         return jsonify({'error': 'An error occurred', 'details': str(e)}), 500
     
 # update transaction status
+from flask_jwt_extended import jwt_required, get_jwt_identity
+from werkzeug.security import check_password_hash
+from models.users import User
+
 @transactions.route('/update_status', methods=['PUT'])
 @jwt_required()
 def update_transaction_status():
@@ -401,11 +506,22 @@ def update_transaction_status():
         if not transaction_id or not status:
             return jsonify({"error": "Both transaction_id and status are required."}), 400
 
+        # Get current user ID from JWT
+        current_user_id = get_jwt_identity()
+
+        # Fetch current user to validate PIN
+        current_user = User.query.get(current_user_id)
+        if not current_user:
+            return jsonify({"error": "User not found."}), 404
+
         # Fetch transaction from the database
         transaction = Transaction.query.get(transaction_id)
         if not transaction:
             return jsonify({"error": "Transaction not found."}), 404
 
+        # Optional: Add additional status change validation if needed
+        # For example, prevent certain status changes based on current status
+        
         # Update the status
         transaction.status = status
         db.session.commit()
@@ -418,7 +534,10 @@ def update_transaction_status():
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({"error": "An error occurred while updating the transaction status.", "details": str(e)}), 500
+        return jsonify({
+            "error": "An error occurred while updating the transaction status.", 
+            "details": str(e)
+        }), 500
     
 @transactions.route('/update_driver_id', methods=['PUT'])
 @jwt_required()
@@ -452,4 +571,123 @@ def update_transaction_driver_id():
         db.session.rollback()
         return jsonify({"error": "An error occurred while updating the transaction status.", "details": str(e)}), 500
 
-    
+@transactions.route('/update_balance_and_status', methods=['PUT'])
+@jwt_required()
+def update_balance_and_status():
+    try:
+        # Parse input data
+        data = request.get_json()
+        
+        # Required fields
+        transaction_id = data.get('transaction_id')
+        status = data.get('status')
+        pin_hash = data.get('pin_hash')
+        amount = data.get('amount', 0)
+        plus_minus = data.get('plus_minus', '')
+
+        # Validate input
+        if not transaction_id or not status:
+            return jsonify({"error": "Both transaction_id and status are required."}), 400
+        
+        if not amount:
+            return jsonify({"error": "Amount is required"}), 400
+        
+        if not plus_minus:
+            return jsonify({"error": "plus_minus is required"}), 400
+
+        # Get current user ID from JWT
+        current_user_id = get_jwt_identity()
+
+        # Fetch current user to validate PIN
+        current_user = User.query.get(current_user_id)
+        if not current_user:
+            return jsonify({"error": "User not found."}), 404
+
+        # Validate PIN hash
+        if not pin_hash:
+            return jsonify({"error": "PIN is required."}), 400
+
+        # Check if provided PIN hash matches the user's stored PIN hash
+        if not current_user.pin_hash or not check_password_hash(current_user.pin_hash, pin_hash):
+            return jsonify({"error": "Invalid PIN."}), 401
+
+        # Fetch transaction from the database
+        transaction = Transaction.query.get(transaction_id)
+        if not transaction:
+            return jsonify({"error": "Transaction not found."}), 404
+
+        # Update balance
+        if plus_minus == 'plus':
+            current_user.balance += amount
+        elif plus_minus == 'minus':
+            if current_user.balance < amount:
+                return jsonify({"error": "Insufficient balance"}), 403
+            current_user.balance -= amount
+        else:
+            return jsonify({"error": "Invalid plus_minus value. Must be 'plus' or 'minus'"}), 400
+
+        # Update transaction status
+        transaction.status = status
+
+        # Commit changes
+        db.session.commit()
+
+        return jsonify({
+            "message": "Balance and transaction status updated successfully",
+            "transaction_id": transaction_id,
+            "new_status": status,
+            "balance": float(current_user.balance)
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "error": "An error occurred while processing the request.", 
+            "details": str(e)
+        }), 500
+
+@transactions.route('/update_driver_location', methods=['PUT'])
+@jwt_required()
+def update_driver_location():
+    """
+    Update the driver's location for all transactions with the same driver_id and status 'taken'.
+    """
+    try:
+        # Parse input data
+        data = request.get_json()
+        driver_id = data.get('driver_id')
+        driver_location = data.get('driver_location')
+
+        # Validate input
+        if not driver_id or not driver_location:
+            return jsonify({"error": "Both driver_id and driver_location are required."}), 400
+
+        # Ensure driver_location is valid JSON
+        try:
+            location_data = json.loads(driver_location)
+            if not all(key in location_data for key in ['lat', 'lng']):
+                raise ValueError("Invalid driver_location format. Required keys: lat, lng.")
+        except (ValueError, TypeError) as e:
+            return jsonify({"error": "Invalid driver_location format.", "details": str(e)}), 400
+
+        # Fetch transactions with the same driver_id and status 'taken'
+        transactions = Transaction.query.filter_by(driver_id=driver_id, status='taken').all()
+
+        if not transactions:
+            return jsonify({"error": "No transactions with status 'taken' found for the given driver_id."}), 200
+
+        # Update driver location for all applicable transactions
+        for transaction in transactions:
+            transaction.driver_location = driver_location
+
+        db.session.commit()
+
+        return jsonify({
+            "message": "Driver location updated successfully for all applicable transactions.",
+            "updated_transactions": [transaction.id for transaction in transactions],
+            "driver_location": driver_location
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": "An error occurred while updating driver location.", "details": str(e)}), 500
