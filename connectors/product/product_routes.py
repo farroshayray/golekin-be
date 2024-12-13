@@ -1,6 +1,6 @@
 from flask import request, jsonify
 from models import db
-from models.products import Product
+from models.products import Product, ProductReview
 from models.users import User
 from models.products import Category
 from . import products
@@ -139,15 +139,64 @@ def get_category_products(category_id):
     }), 200
 
     
-@products.route('/product/<product_id>', methods=['GET'])
+# @products.route('/product/<product_id>', methods=['GET'])
+# def get_product(product_id):
+#     product = Product.query.get(product_id)
+#     category_name = Category.query.get(product.category_id).category_name
+#     shop_name = User.query.filter_by(id=product.user_id).first()
+#     if product:
+#         return jsonify({'catogory_name': category_name , 'shop_name': shop_name.fullname, 'product': product.to_dict()}), 200
+#     else:
+#         return jsonify({'error': 'Product not found'}), 404
+    
+@products.route('/product/<int:product_id>', methods=['GET'])
 def get_product(product_id):
-    product = Product.query.get(product_id)
-    category_name = Category.query.get(product.category_id).category_name
-    shop_name = User.query.filter_by(id=product.user_id).first()
-    if product:
-        return jsonify({'catogory_name': category_name , 'shop_name': shop_name.fullname, 'product': product.to_dict()}), 200
-    else:
-        return jsonify({'error': 'Product not found'}), 404
+    try:
+        # Fetch product by ID
+        product = Product.query.get(product_id)
+        if not product:
+            return jsonify({'error': 'Product not found'}), 404
+
+        # Fetch related category name
+        category = Category.query.get(product.category_id)
+        category_name = category.category_name if category else None
+
+        # Fetch shop (user) information
+        shop = User.query.filter_by(id=product.user_id).first()
+        shop_name = shop.fullname if shop else None
+
+        # Fetch reviews for the product
+        reviews = ProductReview.query.filter_by(product_id=product_id).all()
+        review_list = [
+            {
+                "user_id": review.user_id,
+                "user_fullname": User.query.get(review.user_id).fullname if User.query.get(review.user_id) else "Unknown",
+                "review_text": review.review_text,
+                "star_rating": review.star_rating,
+                "created_at": review.created_at.isoformat() if review.created_at else None
+            }
+            for review in reviews
+        ]
+
+        # Calculate average star rating
+        average_rating = (
+            sum([review.star_rating for review in reviews]) / len(reviews)
+            if reviews else 0
+        )
+
+        return jsonify({
+            'category_name': category_name,
+            'shop_name': shop_name,
+            'product': product.to_dict(),
+            'reviews': {
+                'details': review_list,
+                'average_rating': average_rating
+            }
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': 'An error occurred while fetching the product.', 'details': str(e)}), 500
+
     
     
 # categories
@@ -210,3 +259,49 @@ def delete_product(product_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': f'An error occurred: {str(e)}'}), 500
+
+@products.route('/input_review', methods=['POST'])
+@jwt_required()
+def add_product_review():
+    """
+    Endpoint to add a product review.
+    Request Body:
+    {
+        "product_id": 1,
+        "review_text": "Great product!"
+        "star_rating" : 5
+    }
+    """
+    try:
+        data = request.get_json()
+        product_id = data.get('product_id')
+        review_text = data.get('review_text')
+        star_rating = data.get('star_rating')
+
+        if not product_id:
+            return jsonify({"error": "Product ID is required."}), 400
+
+        # Get current user ID from JWT
+        current_user_id = get_jwt_identity()
+
+        # Validate product
+        product = Product.query.get(product_id)
+        if not product:
+            return jsonify({"error": "Product not found."}), 404
+
+        # Create a new review
+        new_review = ProductReview(
+            product_id=product_id,
+            user_id=current_user_id,
+            review_text=review_text,
+            star_rating=star_rating
+        )
+        db.session.add(new_review)
+        db.session.commit()
+
+        return jsonify({"message": "Review added successfully."}), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": "An error occurred while adding the review.", "details": str(e)}), 500
+    
