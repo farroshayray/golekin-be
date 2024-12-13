@@ -9,6 +9,7 @@ from models.transactions import Transaction
 from models.transactions import TransactionItems
 from models.transactions import Delivery
 from geopy.distance import geodesic
+from decimal import Decimal
 
 # Create a Blueprint for transaction related routes
 
@@ -691,3 +692,100 @@ def update_driver_location():
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": "An error occurred while updating driver location.", "details": str(e)}), 500
+
+@transactions.route("/transaction_list/user/<int:user_id>", methods=["GET"])
+@jwt_required()
+def get_transactions_by_user(user_id):
+    """
+    Get all transactions for a specific user based on the from_user_id column.
+    :param user_id: The ID of the user.
+    :return: JSON response with the user's transactions.
+    """
+    try:
+        # Fetch transactions where the from_user_id matches the user_id
+        transactions = Transaction.query.filter_by(from_user_id=user_id).all()
+
+        if not transactions:
+            return jsonify({"message": "No transactions found for this user."}), 404
+
+        # Convert transactions to dictionary format for JSON serialization
+        transactions_list = [transaction.to_dict() for transaction in transactions]
+
+        return jsonify({"user_id": user_id, "transactions": transactions_list}), 200
+
+    except Exception as e:
+        print("Error fetching transactions for user:", e)
+        return jsonify({"error": "An error occurred while fetching transactions.", "details": str(e)}), 500
+    
+#get driver_location from transactions table by transaction id
+@transactions.route('/driver_location/<int:transaction_id>', methods=['GET'])
+def get_driver_location(transaction_id):
+    try:
+        transaction = Transaction.query.get(transaction_id)
+        if not transaction:
+            return jsonify({"error": "Transaction not found."}), 404
+
+        return jsonify({"driver_location": transaction.driver_location}), 200
+
+    except Exception as e:
+        return jsonify({"error": "An error occurred while fetching driver location.", "details": str(e)}), 500
+
+@transactions.route('/update_status_completed', methods=['PUT'])
+@jwt_required()
+def update_transaction_status_completed():
+    try:
+        # Parse input data
+        data = request.get_json()
+        transaction_id = data.get('transaction_id')
+
+        # Validate input
+        if not transaction_id:
+            return jsonify({"error": "Transaction ID is required."}), 400
+
+        # Get current user ID from JWT
+        current_user_id = get_jwt_identity()
+
+        # Fetch current user
+        current_user = User.query.get(current_user_id)
+        if not current_user:
+            return jsonify({"error": "User not found."}), 404
+
+        # Fetch transaction from the database
+        transaction = Transaction.query.get(transaction_id)
+        if not transaction:
+            return jsonify({"error": "Transaction not found."}), 404
+
+        # Update balance for to_user_id
+        to_user = User.query.get(transaction.to_user_id)
+        if not to_user:
+            return jsonify({"error": "Recipient user not found."}), 404
+
+        to_user.balance += Decimal(transaction.total_amount)
+
+        # Update balance for driver_id
+        if transaction.driver_id:
+            driver = User.query.get(transaction.driver_id)
+            if not driver:
+                return jsonify({"error": "Driver user not found."}), 404
+
+            driver.balance += Decimal(transaction.shipping_cost)
+
+        # Update transaction status to 'completed'
+        transaction.status = 'completed'
+
+        # Commit changes to the database
+        db.session.commit()
+
+        return jsonify({
+            "message": "Transaction status updated and balances adjusted successfully.",
+            "transaction_id": transaction_id,
+            "to_user_balance": to_user.balance,
+            "driver_balance": driver.balance if transaction.driver_id else None
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "error": "An error occurred while updating the transaction status.",
+            "details": str(e)
+        }), 500
