@@ -82,4 +82,4 @@ def login():
                     'image_url': user.image_url,
                     'access_token': access_token}), 200
     
-    
+
