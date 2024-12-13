@@ -19,44 +19,87 @@ def get_cart(user_id):
     transactions = Transaction.query.filter_by(from_user_id=user_id, status="cart").all()
     return jsonify({"cart": [transaction.to_dict() for transaction in transactions]}), 200
 
-@cart.route("/update_quantity", methods=["PUT"])
-@jwt_required()
-def update_quantity():
-    try:
-        # Ambil data dari request JSON
-        data = request.get_json()
-        item_id = data.get("item_id")  # ID dari item dalam keranjang
-        quantity = data.get("quantity")  # Quantity baru yang akan diupdate
-
-        if not item_id or quantity is None:
-            return jsonify({"error": "item_id and quantity are required."}), 400
-
-        if quantity <= 0:
-            return jsonify({"error": "Quantity must be greater than 0."}), 400
-
-        # Cari item dalam database
-        item = TransactionItems.query.get(item_id)
-        if not item:
-            return jsonify({"error": "Item not found."}), 404
-
-        # Update quantity dan subtotal
-        item.quantity = quantity
-        item.subtotal = item.quantity * item.product.price  # Hitung ulang subtotal
+@cart.route("/update_quantity", methods=["PUT"]) 
+@jwt_required() 
+def update_quantity(): 
+    try: 
+        # Get data from JSON request 
+        data = request.get_json() 
+        item_id = data.get("item_id")  # ID of the item in the cart 
+        quantity = data.get("quantity")  # New quantity to update 
+ 
+        if not item_id or quantity is None: 
+            return jsonify({"error": "item_id and quantity are required."}), 400 
+ 
+        if quantity <= 0: 
+            return jsonify({"error": "Quantity must be greater than 0."}), 400 
+ 
+        # Find the item in the database 
+        item = TransactionItems.query.get(item_id) 
+        if not item: 
+            return jsonify({"error": "Item not found."}), 404 
+ 
+        # Find the associated product
+        product = Product.query.get(item.product_id)
+        if not product:
+            return jsonify({"error": "Product not found."}), 404 
+ 
+        # Calculate stock adjustment 
+        # If new quantity is less than old quantity, return stock 
+        # If new quantity is greater than old quantity, reduce stock
+        stock_adjustment = item.quantity - quantity
+ 
+        # Check if there's enough stock when increasing quantity
+        if stock_adjustment < 0 and abs(stock_adjustment) > product.stock:
+            return jsonify({
+                "error": "Insufficient stock.", 
+                "available_stock": product.stock
+            }), 400 
+ 
+        # Update product stock 
+        product.stock += stock_adjustment 
+ 
+        # Update quantity and subtotal of transaction item
+        item.quantity = quantity 
+        item.subtotal = item.quantity * item.product.price  # Recalculate subtotal 
         db.session.commit()
-
-        # Kembalikan response dengan data yang diperbarui
-        return jsonify({
-            "message": "Quantity updated successfully.",
-            "item": {
-                "id": item.id,
-                "product_id": item.product_id,
-                "quantity": item.quantity,
-                "subtotal": item.subtotal
+        
+        # Find the associated transaction 
+        transaction = Transaction.query.get(item.transaction_id)
+        if not transaction: 
+            return jsonify({"error": "Associated transaction not found."}), 404 
+ 
+        # Recalculate total amount by summing all item subtotals in the transaction 
+        total_amount = db.session.query(db.func.sum(TransactionItems.subtotal)) \
+            .filter(TransactionItems.transaction_id == transaction.id) \
+            .scalar() or 0 
+ 
+        # Update transaction total amount 
+        transaction.total_amount = total_amount 
+         
+        db.session.commit() 
+ 
+        # Return response with updated data 
+        return jsonify({ 
+            "message": "Quantity updated successfully.", 
+            "item": { 
+                "id": item.id, 
+                "product_id": item.product_id, 
+                "quantity": item.quantity, 
+                "subtotal": item.subtotal 
+            }, 
+            "transaction": { 
+                "id": transaction.id, 
+                "total_amount": transaction.total_amount 
+            },
+            "product": {
+                "id": product.id,
+                "stock": product.stock
             }
-        }), 200
-
-    except Exception as e:
-        db.session.rollback()
+        }), 200 
+ 
+    except Exception as e: 
+        db.session.rollback() 
         return jsonify({"error": "An error occurred.", "details": str(e)}), 500
 
 
