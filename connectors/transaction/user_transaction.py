@@ -8,6 +8,7 @@ from models.users import User
 from models.transactions import Transaction
 from models.transactions import TransactionItems
 from models.transactions import Delivery
+from models.products import Promotion, Product, ProductReview
 from geopy.distance import geodesic
 from decimal import Decimal
 
@@ -93,12 +94,53 @@ def get_transaction_item(item_id):
     except Exception as e:
         return jsonify({"error": "An error occurred while fetching the transaction item.", "details": str(e)}), 500
     
+# @transactions.route("/detail/<int:transaction_id>", methods=["GET"])
+# def get_transaction_detail(transaction_id):
+#     transaction = Transaction.query.filter_by(id=transaction_id, status="cart").first()
+#     if not transaction:
+#         return jsonify({"error": "Transaction not found"}), 404
+#     return jsonify({"transaction": transaction.to_dict()}), 200
+
 @transactions.route("/detail/<int:transaction_id>", methods=["GET"])
 def get_transaction_detail(transaction_id):
+    # Fetch the transaction with the given ID and status 'cart'
     transaction = Transaction.query.filter_by(id=transaction_id, status="cart").first()
     if not transaction:
         return jsonify({"error": "Transaction not found"}), 404
-    return jsonify({"transaction": transaction.to_dict()}), 200
+
+    # Serialize the transaction to include items, product details, and promotions
+    transaction_dict = transaction.to_dict()
+    transaction_dict["items"] = []
+
+    for item in transaction.transaction_items:
+        # Fetch the related product for this item
+        product = Product.query.get(item.product_id)
+        promotion = Promotion.query.filter_by(product_id=product.id).first() if product else None
+
+        # Append item details including product and promotion
+        transaction_dict["items"].append({
+            "id": item.id,
+            "product_id": product.id if product else None,
+            "product_name": product.product_name if product else "Unknown",
+            "product_price": product.price if product else 0,
+            "product_description": product.description if product else "No description available",
+            "product_image_url": product.image_url if product else None,
+            "quantity": item.quantity,
+            "subtotal": item.subtotal,
+            "promotion": {
+                "id": promotion.id,
+                "scheme": promotion.scheme,
+                "scheme_percentage": promotion.scheme_percentage,
+                "description": promotion.description,
+                "start_date": promotion.start_date,
+                "end_date": promotion.end_date,
+            } if promotion else None,
+        })
+
+    # Return the serialized transaction as JSON
+    return jsonify({"transaction": transaction_dict}), 200
+
+
 
 @transactions.route('/get_delivery/<int:delivery_id>', methods=['GET'])
 def get_delivery(delivery_id):
@@ -192,6 +234,45 @@ def get_transactions_by_consumer_ordered(agent_id):
     try:
         # Fetch transactions for the given agent where the status is "cart"
         transactions = Transaction.query.filter_by(to_user_id=agent_id, status="ordered").all()
+
+        if not transactions:
+            return jsonify({"message": "No transactions found for this agent."}), 404
+
+        # Group transactions by consumers (from_user_id)
+        grouped_transactions = {}
+        for transaction in transactions:
+            consumer_id = transaction.from_user_id
+            if consumer_id not in grouped_transactions:
+                # Add consumer to the group with their details
+                consumer = User.query.get(consumer_id)
+                grouped_transactions[consumer_id] = {
+                    "consumer_id": consumer_id,
+                    "consumer_name": consumer.fullname if consumer else "Unknown",
+                    "transactions": [],
+                }
+            
+            # Add the transaction to the consumer's group
+            grouped_transactions[consumer_id]["transactions"].append(transaction.to_dict())
+
+        # Convert the grouped transactions to a list for JSON serialization
+        grouped_transactions_list = list(grouped_transactions.values())
+
+        return jsonify({"grouped_transactions": grouped_transactions_list}), 200
+
+    except Exception as e:
+        print("Error fetching transactions by consumer:", e)
+        return jsonify({"error": "An error occurred while fetching transactions.", "details": str(e)}), 500
+    
+@transactions.route("/status_completed/agent/<int:agent_id>", methods=["GET"])
+def get_transactions_by_consumer_completed(agent_id):
+    """
+    Get transactions grouped by consumers for a specific agent (market).
+    :param agent_id: The ID of the agent (market).
+    :return: JSON response with grouped transactions.
+    """
+    try:
+        # Fetch transactions for the given agent where the status is "cart"
+        transactions = Transaction.query.filter(Transaction.to_user_id == agent_id, Transaction.status.in_(["completed", "completed(reviewed)"])).all()
 
         if not transactions:
             return jsonify({"message": "No transactions found for this agent."}), 404
@@ -572,18 +653,93 @@ def update_transaction_driver_id():
         db.session.rollback()
         return jsonify({"error": "An error occurred while updating the transaction status.", "details": str(e)}), 500
 
+# @transactions.route('/update_balance_and_status', methods=['PUT'])
+# @jwt_required()
+# def update_balance_and_status():
+#     try:
+#         # Parse input data
+#         data = request.get_json()
+        
+#         # Required fields
+#         transaction_id = data.get('transaction_id')
+#         status = data.get('status')
+#         pin_hash = data.get('pin_hash')
+#         amount = data.get('amount', 0)
+#         plus_minus = data.get('plus_minus', '')
+
+#         # Validate input
+#         if not transaction_id or not status:
+#             return jsonify({"error": "Both transaction_id and status are required."}), 400
+        
+#         if not amount:
+#             return jsonify({"error": "Amount is required"}), 400
+        
+#         if not plus_minus:
+#             return jsonify({"error": "plus_minus is required"}), 400
+
+#         # Get current user ID from JWT
+#         current_user_id = get_jwt_identity()
+
+#         # Fetch current user to validate PIN
+#         current_user = User.query.get(current_user_id)
+#         if not current_user:
+#             return jsonify({"error": "User not found."}), 404
+
+#         # Validate PIN hash
+#         if not pin_hash:
+#             return jsonify({"error": "PIN is required."}), 400
+
+#         # Check if provided PIN hash matches the user's stored PIN hash
+#         if not current_user.pin_hash or not check_password_hash(current_user.pin_hash, pin_hash):
+#             return jsonify({"error": "Invalid PIN."}), 401
+
+#         # Fetch transaction from the database
+#         transaction = Transaction.query.get(transaction_id)
+#         if not transaction:
+#             return jsonify({"error": "Transaction not found."}), 404
+
+#         # Update balance
+#         if plus_minus == 'plus':
+#             current_user.balance += amount
+#         elif plus_minus == 'minus':
+#             if current_user.balance < amount:
+#                 return jsonify({"error": "Insufficient balance"}), 403
+#             current_user.balance -= amount
+#         else:
+#             return jsonify({"error": "Invalid plus_minus value. Must be 'plus' or 'minus'"}), 400
+
+#         # Update transaction status
+#         transaction.status = status
+
+#         # Commit changes
+#         db.session.commit()
+
+#         return jsonify({
+#             "message": "Balance and transaction status updated successfully",
+#             "transaction_id": transaction_id,
+#             "new_status": status,
+#             "balance": float(current_user.balance)
+#         }), 200
+
+#     except Exception as e:
+#         db.session.rollback()
+#         return jsonify({
+#             "error": "An error occurred while processing the request.", 
+#             "details": str(e)
+#         }), 500
+
 @transactions.route('/update_balance_and_status', methods=['PUT'])
 @jwt_required()
 def update_balance_and_status():
     try:
         # Parse input data
         data = request.get_json()
-        
+
         # Required fields
         transaction_id = data.get('transaction_id')
         status = data.get('status')
         pin_hash = data.get('pin_hash')
-        amount = data.get('amount', 0)
+        amount = Decimal(data.get('amount', 0))  # Convert to Decimal
         plus_minus = data.get('plus_minus', '')
 
         # Validate input
@@ -608,7 +764,6 @@ def update_balance_and_status():
         if not pin_hash:
             return jsonify({"error": "PIN is required."}), 400
 
-        # Check if provided PIN hash matches the user's stored PIN hash
         if not current_user.pin_hash or not check_password_hash(current_user.pin_hash, pin_hash):
             return jsonify({"error": "Invalid PIN."}), 401
 
@@ -617,13 +772,43 @@ def update_balance_and_status():
         if not transaction:
             return jsonify({"error": "Transaction not found."}), 404
 
-        # Update balance
+        # Initialize cashback total and recalculate total_amount
+        cashback_total = Decimal(0)  # Ensure cashback_total is a Decimal
+        updated_total_amount = Decimal(0)  # To calculate the new total amount for the transaction
+
+        # Iterate through transaction items
+        for item in transaction.transaction_items:
+            # Fetch the associated product and promotion
+            product = Product.query.get(item.product_id)
+            promotion = Promotion.query.filter_by(product_id=item.product_id).first()
+
+            if promotion:
+                if promotion.scheme == 'discount':
+                    # Apply discount to the product subtotal
+                    discount = (Decimal(promotion.scheme_percentage) / 100) * Decimal(item.subtotal)
+                    item.subtotal = Decimal(item.subtotal) - discount
+                elif promotion.scheme == 'cashback':
+                    # Calculate cashback and add it to the user's balance
+                    cashback = (Decimal(promotion.scheme_percentage) / 100) * Decimal(item.subtotal)
+                    cashback_total += cashback
+
+            # Add item's updated subtotal to the new total_amount
+            updated_total_amount += Decimal(item.subtotal)
+
+        # Update transaction's total_amount with the recalculated value
+        transaction.total_amount = updated_total_amount
+
+        # Update user's balance with cashback
+        if cashback_total > 0:
+            current_user.balance = Decimal(current_user.balance) + cashback_total
+
+        # Update balance based on plus_minus
         if plus_minus == 'plus':
-            current_user.balance += amount
+            current_user.balance = Decimal(current_user.balance) + amount
         elif plus_minus == 'minus':
-            if current_user.balance < amount:
+            if Decimal(current_user.balance) < updated_total_amount:
                 return jsonify({"error": "Insufficient balance"}), 403
-            current_user.balance -= amount
+            current_user.balance = Decimal(current_user.balance) - updated_total_amount - Decimal(transaction.shipping_cost)
         else:
             return jsonify({"error": "Invalid plus_minus value. Must be 'plus' or 'minus'"}), 400
 
@@ -637,15 +822,18 @@ def update_balance_and_status():
             "message": "Balance and transaction status updated successfully",
             "transaction_id": transaction_id,
             "new_status": status,
-            "balance": float(current_user.balance)
+            "balance": float(current_user.balance),  # Convert Decimal to float for JSON serialization
+            "updated_total_amount": float(updated_total_amount)
         }), 200
 
     except Exception as e:
         db.session.rollback()
         return jsonify({
-            "error": "An error occurred while processing the request.", 
+            "error": "An error occurred while processing the request.",
             "details": str(e)
         }), 500
+
+
 
 @transactions.route('/update_driver_location', methods=['PUT'])
 @jwt_required()

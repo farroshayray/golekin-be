@@ -9,6 +9,7 @@ from connectors.upload_file import upload_file as upload_blueprint
 from connectors.user import user as user_blueprint
 from connectors.cart import cart as cart_blueprint  
 from connectors.agen import agen as agen_blueprint
+from connectors.promotion import promotion as promotion_blueprint
 from flask_jwt_extended import JWTManager, get_jwt_identity, jwt_required, unset_jwt_cookies
 import os
 
@@ -28,7 +29,8 @@ app.register_blueprint(transaction_blueprint, url_prefix='/transaction')
 app.register_blueprint(upload_blueprint, url_prefix='/upload')
 app.register_blueprint(user_blueprint, url_prefix='/user')
 app.register_blueprint(cart_blueprint, url_prefix='/cart')  
-app.register_blueprint(agen_blueprint, url_prefix='/agen')  
+app.register_blueprint(agen_blueprint, url_prefix='/agen')
+app.register_blueprint(promotion_blueprint, url_prefix='/promotion')
 
 # JWT handlers
 @jwt.expired_token_loader
