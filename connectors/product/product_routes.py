@@ -1,13 +1,12 @@
 from flask import request, jsonify
 from models import db
-from models.products import Product, ProductReview
+from models.products import Product, ProductReview, Promotion
 from models.users import User
 from models.products import Category
 from . import products
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 @products.route('/test', methods=['GET'])
-@jwt_required()
 def test_product():
     return jsonify({'message': 'Product route is working!'}), 200
 
@@ -118,25 +117,63 @@ def update_product(product_id):
         return jsonify({'error': f'An error occurred: {str(e)}'}), 500
 
 
+# @products.route('/all_products', methods=['GET'])
+# def get_products():
+#     products = Product.query.all()
+#     return jsonify({'products': [product.to_dict() for product in products]}), 200
+
 @products.route('/all_products', methods=['GET'])
 def get_products():
-    products = Product.query.all()
-    return jsonify({'products': [product.to_dict() for product in products]}), 200
+    try:
+        # Fetch all products
+        all_products = Product.query.all()
+        
+        # Prepare the response with promotions
+        response_data = []
+        for product in all_products:
+            # Fetch the promotion for the current product
+            promotion = Promotion.query.filter_by(product_id=product.id).first()
+            promotion_data = promotion.to_dict() if promotion else None
+
+            # Append product with its promotion details
+            product_data = product.to_dict()
+            product_data['promotion'] = promotion_data
+            response_data.append(product_data)
+
+        return jsonify({'products': response_data}), 200
+
+    except Exception as e:
+        return jsonify({'error': 'An error occurred while fetching products.', 'details': str(e)}), 500
+
 
 @products.route('/category_products/<int:category_id>', methods=['GET'])
 def get_category_products(category_id):
     print(f"Fetching products for category ID: {category_id}")
+    
+    # Fetch the category by ID
     category = Category.query.get(category_id)
     if not category:
         print(f"Category ID {category_id} not found")
         return jsonify({'error': 'Category not found'}), 404
 
+    # Fetch products for the given category
     products = Product.query.filter_by(category_id=category_id).all()
     print(f"Products found: {products}")
+
+    # Prepare the response with promotion data
+    response_products = []
+    for product in products:
+        # Find promotion related to the product
+        promotion = Promotion.query.filter_by(product_id=product.id).first()
+        product_data = product.to_dict()
+        product_data['promotion'] = promotion.to_dict() if promotion else None
+        response_products.append(product_data)
+
     return jsonify({
         'category_name': category.category_name,
-        'products': [product.to_dict() for product in products]
+        'products': response_products
     }), 200
+
 
     
 # @products.route('/product/<product_id>', methods=['GET'])
@@ -149,6 +186,54 @@ def get_category_products(category_id):
 #     else:
 #         return jsonify({'error': 'Product not found'}), 404
     
+# @products.route('/product/<int:product_id>', methods=['GET'])
+# def get_product(product_id):
+#     try:
+#         # Fetch product by ID
+#         product = Product.query.get(product_id)
+#         if not product:
+#             return jsonify({'error': 'Product not found'}), 404
+
+#         # Fetch related category name
+#         category = Category.query.get(product.category_id)
+#         category_name = category.category_name if category else None
+
+#         # Fetch shop (user) information
+#         shop = User.query.filter_by(id=product.user_id).first()
+#         shop_name = shop.fullname if shop else None
+
+#         # Fetch reviews for the product
+#         reviews = ProductReview.query.filter_by(product_id=product_id).all()
+#         review_list = [
+#             {
+#                 "user_id": review.user_id,
+#                 "user_fullname": User.query.get(review.user_id).fullname if User.query.get(review.user_id) else "Unknown",
+#                 "review_text": review.review_text,
+#                 "star_rating": review.star_rating,
+#                 "created_at": review.created_at.isoformat() if review.created_at else None
+#             }
+#             for review in reviews
+#         ]
+
+#         # Calculate average star rating
+#         average_rating = (
+#             sum([review.star_rating for review in reviews]) / len(reviews)
+#             if reviews else 0
+#         )
+
+#         return jsonify({
+#             'category_name': category_name,
+#             'shop_name': shop_name,
+#             'product': product.to_dict(),
+#             'reviews': {
+#                 'details': review_list,
+#                 'average_rating': average_rating
+#             }
+#         }), 200
+
+#     except Exception as e:
+#         return jsonify({'error': 'An error occurred while fetching the product.', 'details': str(e)}), 500
+
 @products.route('/product/<int:product_id>', methods=['GET'])
 def get_product(product_id):
     try:
@@ -184,6 +269,10 @@ def get_product(product_id):
             if reviews else 0
         )
 
+        # Fetch promotion for the product
+        promotion = Promotion.query.filter_by(product_id=product_id).first()
+        promotion_details = promotion.to_dict() if promotion else None
+
         return jsonify({
             'category_name': category_name,
             'shop_name': shop_name,
@@ -191,11 +280,13 @@ def get_product(product_id):
             'reviews': {
                 'details': review_list,
                 'average_rating': average_rating
-            }
+            },
+            'promotion': promotion_details
         }), 200
 
     except Exception as e:
         return jsonify({'error': 'An error occurred while fetching the product.', 'details': str(e)}), 500
+
 
     
     
@@ -230,11 +321,33 @@ def get_category(category_id):
 # semua product yang dibuat oleh sebuah agen
 @products.route('/agen_products/<int:agen_id>', methods=['GET'])
 def get_agen_products(agen_id):
-    products = Product.query.filter_by(user_id=agen_id).all()
-    agen_name = User.query.filter_by(id=agen_id).first().fullname
-    if not products:
-        return jsonify({'error': 'Products not found'}), 404
-    return jsonify({'market_name': agen_name, 'products': [product.to_dict() for product in products]}), 200
+    try:
+        # Fetch products for the given agent (user ID)
+        products = Product.query.filter_by(user_id=agen_id).all()
+        agen = User.query.filter_by(id=agen_id).first()
+
+        if not agen:
+            return jsonify({'error': 'Agent not found'}), 404
+
+        if not products:
+            return jsonify({'error': 'Products not found'}), 404
+
+        # Add promotions for each product
+        product_list = []
+        for product in products:
+            promotion = Promotion.query.filter_by(product_id=product.id).first()
+            product_data = product.to_dict()
+            product_data['promotion'] = promotion.to_dict() if promotion else None
+            product_list.append(product_data)
+
+        return jsonify({
+            'market_name': agen.fullname,
+            'products': product_list
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': 'An error occurred while fetching agent products.', 'details': str(e)}), 500
+
 
 @products.route('/delete_product/<int:product_id>', methods=['DELETE'])
 @jwt_required()
