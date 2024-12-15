@@ -82,4 +82,63 @@ def login():
                     'image_url': user.image_url,
                     'access_token': access_token}), 200
     
+@auth.route('/profile', methods=['GET', 'PUT'])
+@jwt_required()
+def profile():
+    current_user_id = get_jwt_identity()  # Mendapatkan ID user dari token JWT
+    user = User.query.get(current_user_id)
 
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+
+    if request.method == 'GET':
+        # Menampilkan data profile
+        return jsonify({
+            'id': user.id,
+            'username': user.username,
+            'fullname': user.fullname,
+            'email': user.email,
+            'description': user.description,
+            'image_url': user.image_url,
+            'role': user.role,
+            'phone_number': user.phone_number,
+            'agen_id': user.agen_id,
+            'location': user.location
+        }), 200
+
+    elif request.method == 'PUT':
+        data = request.get_json()
+        username = data.get('username', '').strip()
+        fullname = data.get('fullname', '').strip()
+        email = data.get('email', '').strip()
+        description = data.get('description', '').strip()
+        image_url = data.get('image_url', '').strip()
+        phone_number = data.get('phone_number', '').strip()
+        location = data.get('location', '').strip()
+
+        # Validasi input
+        if not username or not fullname or not email or not phone_number:
+            return jsonify({'error': 'Please fill all required fields'}), 400
+
+        # Cek jika username, email, atau phone_number sudah digunakan oleh user lain
+        if User.query.filter(User.username == username, User.id != current_user_id).first():
+            return jsonify({'error': 'Username already exists'}), 400
+
+        if User.query.filter(User.email == email, User.id != current_user_id).first():
+            return jsonify({'error': 'Email already exists'}), 400
+
+        if User.query.filter(User.phone_number == phone_number, User.id != current_user_id).first():
+            return jsonify({'error': 'Phone number already exists'}), 400
+
+        # Update data user
+        user.username = username
+        user.fullname = fullname
+        user.email = email
+        user.description = description
+        user.image_url = image_url
+        user.phone_number = phone_number
+        user.location = location
+
+        db.session.commit()
+
+        return jsonify({'message': 'Profile updated successfully'}), 200
