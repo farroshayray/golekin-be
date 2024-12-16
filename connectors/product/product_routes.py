@@ -3,6 +3,7 @@ from models import db
 from models.products import Product, ProductReview, Promotion
 from models.users import User
 from models.products import Category
+from models.transactions import TransactionItems
 from . import products
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
@@ -373,6 +374,52 @@ def delete_product(product_id):
         db.session.rollback()
         return jsonify({'error': f'An error occurred: {str(e)}'}), 500
 
+# @products.route('/input_review', methods=['POST'])
+# @jwt_required()
+# def add_product_review():
+#     """
+#     Endpoint to add a product review.
+#     Request Body:
+#     {
+#         "product_id": 1,
+#         "review_text": "Great product!"
+#         "star_rating" : 5
+#     }
+#     """
+#     try:
+#         data = request.get_json()
+#         product_id = data.get('product_id')
+#         review_text = data.get('review_text')
+#         star_rating = data.get('star_rating')
+#         print("Request received:", request.json)
+
+#         if not product_id:
+#             return jsonify({"error": "Product ID is required."}), 400
+
+#         # Get current user ID from JWT
+#         current_user_id = get_jwt_identity()
+
+#         # Validate product
+#         product = Product.query.get(product_id)
+#         if not product:
+#             return jsonify({"error": "Product not found."}), 404
+
+#         # Create a new review
+#         new_review = ProductReview(
+#             product_id=product_id,
+#             user_id=current_user_id,
+#             review_text=review_text,
+#             star_rating=star_rating
+#         )
+#         db.session.add(new_review)
+#         db.session.commit()
+
+#         return jsonify({"message": "Review added successfully."}), 201
+
+#     except Exception as e:
+#         db.session.rollback()
+#         return jsonify({"error": "An error occurred while adding the review.", "details": str(e)}), 500
+    
 @products.route('/input_review', methods=['POST'])
 @jwt_required()
 def add_product_review():
@@ -380,22 +427,31 @@ def add_product_review():
     Endpoint to add a product review.
     Request Body:
     {
-        "product_id": 1,
-        "review_text": "Great product!"
-        "star_rating" : 5
+        "item_id": 1,
+        "review_text": "Great product!",
+        "star_rating": 5
     }
     """
     try:
         data = request.get_json()
-        product_id = data.get('product_id')
+        item_id = data.get('item_id')  # Mengambil item_id dari request body
         review_text = data.get('review_text')
         star_rating = data.get('star_rating')
+        print("Request received:", request.json)
 
-        if not product_id:
-            return jsonify({"error": "Product ID is required."}), 400
+        if not item_id:
+            return jsonify({"error": "Item ID is required."}), 400
 
         # Get current user ID from JWT
         current_user_id = get_jwt_identity()
+
+        # Validate transaction item
+        transaction_item = TransactionItems.query.get(item_id)
+        if not transaction_item:
+            return jsonify({"error": "Transaction item not found."}), 404
+
+        # Get product_id from transaction item
+        product_id = transaction_item.product_id
 
         # Validate product
         product = Product.query.get(product_id)
@@ -416,5 +472,5 @@ def add_product_review():
 
     except Exception as e:
         db.session.rollback()
+        print(f"Error: {e}")
         return jsonify({"error": "An error occurred while adding the review.", "details": str(e)}), 500
-    
