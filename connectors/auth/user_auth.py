@@ -143,4 +143,3 @@ def profile():
 
         return jsonify({'message': 'Profile updated successfully'}), 200
 
-

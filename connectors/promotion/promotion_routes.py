@@ -1,3 +1,4 @@
+
 from . import promotion
 from flask import Flask, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
@@ -81,3 +82,4 @@ def handle_promotions():
             return jsonify({'message': 'Promotion deleted successfully'}), 200
         except Exception as e:
             return jsonify({'error': str(e)}), 400
+
